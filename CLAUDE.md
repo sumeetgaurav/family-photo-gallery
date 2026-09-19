@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project status
 
-Implemented (v1) with Next.js + Supabase, not yet deployed. `npm run build` and `npm run lint` pass. The app has not been exercised against a live Supabase project in this environment — see `README.md` for setup steps before running it for real.
+Implemented with Next.js + Supabase, not yet deployed to production. `npm run build` and `npm run lint` pass. The app *has* been exercised end-to-end against a live Supabase project during development (schema applied via the SQL Editor; the full request → approve → gallery → visit-tracking → revoke flow verified manually) — see `README.md` for setup/deploy steps.
 
 ## What this project is
 
@@ -12,7 +12,7 @@ A family photo gallery, gated by a name-request/admin-approval flow instead of t
 
 1. A visitor opens the domain and is shown a gate page asking for their name and email.
 2. Submitting the form creates a pending access request (keyed by email — see below) and sets an (untrusted) device cookie.
-3. The visitor sees a "waiting for approval" screen that updates live (Supabase Realtime) when the admin acts.
+3. The visitor sees a "waiting for approval" screen that updates within a few seconds via polling (not Supabase Realtime — see "Deviations from the original plan") when the admin acts.
 4. The admin approves or denies from a separate `/admin` dashboard, which shows the requester's name and email.
 5. On approval, the visitor's device cookie is upgraded to a signed, long-lived JWT — **the device stays approved on future visits** (no re-request each time), until the admin explicitly revokes it.
 6. Once approved, the visitor can browse the photo gallery (grid + lightbox); the admin manages photos (upload/update/delete, thumbnail generation) from the admin dashboard, and changes reflect immediately on the public gallery.
