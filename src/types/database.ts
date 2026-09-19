@@ -7,6 +7,7 @@ export type AccessRequestStatus = "pending" | "approved" | "denied";
 export type AccessRequestRow = {
   id: string;
   name: string;
+  email: string;
   status: AccessRequestStatus;
   device_cookie_id: string;
   created_at: string;
@@ -45,7 +46,7 @@ export type Database = {
       access_requests: {
         Row: AccessRequestRow;
         Insert: Partial<AccessRequestRow> &
-          Pick<AccessRequestRow, "name" | "device_cookie_id">;
+          Pick<AccessRequestRow, "name" | "email" | "device_cookie_id">;
         Update: Partial<AccessRequestRow>;
         Relationships: [];
       };

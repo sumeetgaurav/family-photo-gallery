@@ -14,6 +14,7 @@ create extension if not exists "pgcrypto";
 create table if not exists public.access_requests (
   id uuid primary key default gen_random_uuid(),
   name text not null check (char_length(name) between 1 and 80),
+  email text not null check (char_length(email) between 3 and 254),
   status text not null default 'pending' check (status in ('pending', 'approved', 'denied')),
   device_cookie_id text not null unique,
   created_at timestamptz not null default now(),
@@ -23,15 +24,22 @@ create table if not exists public.access_requests (
 
 create index if not exists access_requests_status_idx on public.access_requests (status, created_at desc);
 
+-- One row per email: re-submitting the same email reuses this row instead of
+-- creating a new request, which is what lets a returning, still-approved
+-- visitor skip admin approval on their next visit (see src/app/actions.ts).
+create unique index if not exists access_requests_email_idx on public.access_requests (lower(email));
+
 alter table public.access_requests enable row level security;
 
 -- ---------------------------------------------------------------------------
--- approved_devices: the trust record behind a visitor's session cookie.
+-- approved_devices: the trust record(s) behind a visitor's session cookie.
+-- Multiple rows can point at the same access_request — an approved email can
+-- be approved from several devices/browsers, each independently revocable.
 -- Revoking access is a single update: set revoked_at.
 -- ---------------------------------------------------------------------------
 create table if not exists public.approved_devices (
   id uuid primary key default gen_random_uuid(),
-  access_request_id uuid not null references public.access_requests (id) on delete cascade unique,
+  access_request_id uuid not null references public.access_requests (id) on delete cascade,
   token_hash text not null,
   created_at timestamptz not null default now(),
   revoked_at timestamptz

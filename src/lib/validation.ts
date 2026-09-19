@@ -7,6 +7,13 @@ export const nameRequestSchema = z.object({
     .min(1, "Enter your name.")
     .max(80, "That name is too long.")
     .regex(/^[\p{L}\p{M} '.-]+$/u, "Use only letters, spaces, and - ' . characters."),
+  email: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3, "Enter your email.")
+    .max(254, "That email is too long.")
+    .email("Enter a valid email address."),
 });
 
 export const photoUploadSchema = z.object({

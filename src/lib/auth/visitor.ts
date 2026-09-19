@@ -157,6 +157,42 @@ export async function readVisitorStatus(): Promise<VisitorStatus> {
 }
 
 /**
+ * Mints a new approved_devices row for an already-approved request and
+ * issues the session cookie for this browser. Shared by the polling
+ * upgrade path below and by the instant re-approval path in
+ * `src/app/actions.ts` (a returning, still-approved email skips the
+ * waiting screen entirely).
+ */
+export async function mintApprovedSession(request: {
+  id: string;
+  name: string;
+}): Promise<VisitorStatus> {
+  const supabase = getAdminClient();
+  const deviceSecret = randomBytes(32).toString("hex");
+  const tokenHash = hashToken(deviceSecret);
+
+  const { data: device, error } = await supabase
+    .from("approved_devices")
+    .insert({ access_request_id: request.id, token_hash: tokenHash })
+    .select("id")
+    .single();
+
+  if (error || !device) {
+    return { state: "pending" };
+  }
+
+  await issueSessionCookie({
+    deviceId: device.id,
+    requestId: request.id,
+    name: request.name,
+    deviceSecret,
+  });
+  await clearPendingRequestCookie();
+
+  return { state: "approved", name: request.name, deviceId: device.id };
+}
+
+/**
  * Mutating check, safe only from Server Actions / Route Handlers. If the
  * visitor's pending request has been approved, mints an approved_devices
  * row and issues the session cookie, then clears the pending cookie.
@@ -180,28 +216,5 @@ export async function pollAndUpgradeIfApproved(): Promise<VisitorStatus> {
   if (request.status === "denied") return { state: "denied" };
   if (request.status === "pending") return { state: "pending" };
 
-  const deviceSecret = randomBytes(32).toString("hex");
-  const tokenHash = hashToken(deviceSecret);
-
-  const { data: device, error } = await supabase
-    .from("approved_devices")
-    .insert({ access_request_id: request.id, token_hash: tokenHash })
-    .select("id")
-    .single();
-
-  if (error || !device) {
-    // Transient issue — the visitor stays on the waiting screen and the
-    // next poll (a few seconds later) tries again.
-    return { state: "pending" };
-  }
-
-  await issueSessionCookie({
-    deviceId: device.id,
-    requestId: request.id,
-    name: request.name,
-    deviceSecret,
-  });
-  await clearPendingRequestCookie();
-
-  return { state: "approved", name: request.name, deviceId: device.id };
+  return mintApprovedSession(request);
 }

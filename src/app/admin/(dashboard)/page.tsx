@@ -10,7 +10,7 @@ export default async function AdminRequestsPage() {
   const [{ data: pending }, { data: devices }] = await Promise.all([
     supabase
       .from("access_requests")
-      .select("id, name, created_at")
+      .select("id, name, email, created_at")
       .eq("status", "pending")
       .order("created_at", { ascending: true }),
     supabase
@@ -23,10 +23,10 @@ export default async function AdminRequestsPage() {
   const requestIds = (devices ?? []).map((device) => device.access_request_id);
   const { data: approvedRequests } =
     requestIds.length > 0
-      ? await supabase.from("access_requests").select("id, name").in("id", requestIds)
-      : { data: [] as { id: string; name: string }[] };
+      ? await supabase.from("access_requests").select("id, name, email").in("id", requestIds)
+      : { data: [] as { id: string; name: string; email: string }[] };
 
-  const nameByRequestId = new Map((approvedRequests ?? []).map((r) => [r.id, r.name]));
+  const requestById = new Map((approvedRequests ?? []).map((r) => [r.id, r]));
 
   return (
     <div className="flex flex-col gap-10">
@@ -45,6 +45,7 @@ export default async function AdminRequestsPage() {
               >
                 <div>
                   <p className="font-medium text-stone-900">{request.name}</p>
+                  <p className="text-xs text-stone-500">{request.email}</p>
                   <p className="text-xs text-stone-500">
                     Requested {new Date(request.created_at).toLocaleString()}
                   </p>
@@ -86,7 +87,10 @@ export default async function AdminRequestsPage() {
               >
                 <div>
                   <p className="font-medium text-stone-900">
-                    {nameByRequestId.get(device.access_request_id) ?? "Unknown"}
+                    {requestById.get(device.access_request_id)?.name ?? "Unknown"}
+                  </p>
+                  <p className="text-xs text-stone-500">
+                    {requestById.get(device.access_request_id)?.email ?? ""}
                   </p>
                   <p className="text-xs text-stone-500">
                     Approved {new Date(device.created_at).toLocaleString()}

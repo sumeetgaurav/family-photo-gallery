@@ -10,14 +10,14 @@ Implemented (v1) with Next.js + Supabase, not yet deployed. `npm run build` and 
 
 A family photo gallery, gated by a name-request/admin-approval flow instead of traditional user accounts:
 
-1. A visitor opens the domain and is shown a gate page asking for their name.
-2. Submitting the name creates a pending access request and sets an (untrusted) device cookie.
+1. A visitor opens the domain and is shown a gate page asking for their name and email.
+2. Submitting the form creates a pending access request (keyed by email — see below) and sets an (untrusted) device cookie.
 3. The visitor sees a "waiting for approval" screen that updates live (Supabase Realtime) when the admin acts.
-4. The admin approves or denies from a separate `/admin` dashboard.
+4. The admin approves or denies from a separate `/admin` dashboard, which shows the requester's name and email.
 5. On approval, the visitor's device cookie is upgraded to a signed, long-lived JWT — **the device stays approved on future visits** (no re-request each time), until the admin explicitly revokes it.
 6. Once approved, the visitor can browse the photo gallery (grid + lightbox); the admin manages photos (upload/update/delete, thumbnail generation) from the admin dashboard, and changes reflect immediately on the public gallery.
 
-Key decision: approval is **per-device, persistent, and admin-revocable** — not a one-time gate and not a full username/password system for viewers. Admin auth (separate from viewer approval) uses real login credentials via Supabase Auth.
+Key decision: approval is keyed by **email**, and per-email trust is persistent and admin-revocable — not a one-time gate and not a full username/password system for viewers. `access_requests` has one row per email (unique on `lower(email)`): submitting a name/email that already has an active (non-revoked) approval mints a session for that browser immediately, with no admin round-trip — see `submitNameRequest` in `src/app/actions.ts`. Re-approval is only required again if the request was denied, or every `approved_devices` row for it has been revoked. A single email can still have multiple independent devices/browsers approved at once (`approved_devices.access_request_id` is not unique), each separately revocable from the admin dashboard. Admin auth (separate from viewer approval) uses real login credentials via Supabase Auth.
 
 ## Planned architecture
 
@@ -32,8 +32,8 @@ Key decision: approval is **per-device, persistent, and admin-revocable** — no
 ### Data model
 
 - `admin_users` — managed by Supabase Auth (not a custom table)
-- `access_requests`: `id, name, status (pending|approved|denied), device_cookie_id, created_at, decided_at, decided_by`
-- `approved_devices`: `id, access_request_id, token_hash, created_at, revoked_at` — lets the admin revoke one device without touching the original request record
+- `access_requests`: `id, name, email, status (pending|approved|denied), device_cookie_id, created_at, decided_at, decided_by` — unique on `lower(email)`; one row per email, reused/reset across resubmissions rather than duplicated
+- `approved_devices`: `id, access_request_id, token_hash, created_at, revoked_at` — one row per approved browser/device; not unique on `access_request_id`, so one email can have several active devices, each independently revocable without touching the original request record
 - `albums` *(optional)*: `id, name, cover_photo_id, created_at`
 - `photos`: `id, album_id (nullable), storage_path, thumbnail_path, caption, uploaded_at, uploaded_by`
 
@@ -50,6 +50,7 @@ Key decision: approval is **per-device, persistent, and admin-revocable** — no
 - **Next.js 16 renamed `middleware.ts` to `proxy.ts`** (functionally identical) — `src/proxy.ts` does an optimistic-only redirect for `/gallery` based on cookie *presence*; the real check (signature, DB revocation) is `readVisitorStatus()` / `pollAndUpgradeIfApproved()` in `src/lib/auth/visitor.ts`, called on every protected render regardless.
 - **Server Actions instead of a REST API.** There is no `/api/*` route — `src/app/actions.ts` (public: submit name, poll status) and `src/app/admin/actions.ts` / `src/app/admin/photos-actions.ts` (admin: approve/deny/revoke, photo CRUD) are all Server Actions called directly from forms or client components. Simpler than maintaining parallel Route Handlers for the same operations; each admin action still re-verifies `verifyAdminSession()` itself rather than trusting the caller.
 - **`src/types/database.ts` uses `type`, not `interface`, for every row shape.** Supabase's client types require `Row`/`Insert`/`Update` to structurally satisfy `Record<string, unknown>`; a bare `interface` (no index signature) fails that check silently and every query resolves to `never`. Keep new tables' Row/Insert/Update as `type`.
+- **Identity moved from device-only to email-keyed.** The original plan trusted a bare random `device_cookie_id` with no visitor-supplied identity. `submitNameRequest` now looks up `access_requests` by `lower(email)` first: no row → insert pending as before; an existing row that's `approved` with at least one non-revoked `approved_devices` row → mint a session for this browser immediately via `mintApprovedSession` (`src/lib/auth/visitor.ts`), skipping the waiting screen entirely; a `pending` row → attach this browser's cookie to the existing request instead of creating a duplicate; `denied`, or `approved` with every device revoked → reset the row to `pending` (clearing `decided_at`/`decided_by`) so it needs a fresh admin decision.
 
 ## Commands
 
