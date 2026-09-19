@@ -25,7 +25,7 @@ export function GalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
               src={photo.thumbnailUrl}
               alt={photo.caption ?? "Family photo"}
               loading="lazy"
-              className="h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
+              className="h-full w-full object-cover object-top transition-transform duration-200 group-hover:scale-105"
             />
           </button>
         ))}

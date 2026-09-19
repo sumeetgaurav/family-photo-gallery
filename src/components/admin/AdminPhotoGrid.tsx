@@ -11,7 +11,7 @@ export function AdminPhotoGrid({ photos }: { photos: GalleryPhoto[] }) {
             <img
               src={photo.thumbnailUrl}
               alt={photo.caption ?? "Family photo"}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-cover object-top"
             />
           </div>
 
