@@ -14,20 +14,26 @@ export function GalleryGrid({ photos }: { photos: GalleryPhoto[] }) {
     <>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
         {photos.map((photo, index) => (
-          <button
-            key={photo.id}
-            type="button"
-            onClick={() => setOpenIndex(index)}
-            className="group aspect-square overflow-hidden rounded-md bg-stone-200"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={photo.thumbnailUrl}
-              alt={photo.caption ?? "Family photo"}
-              loading="lazy"
-              className="h-full w-full object-cover object-top transition-transform duration-200 group-hover:scale-105"
-            />
-          </button>
+          <div key={photo.id} className="flex flex-col gap-1">
+            <button
+              type="button"
+              onClick={() => setOpenIndex(index)}
+              className="group aspect-square overflow-hidden rounded-md bg-stone-200"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photo.thumbnailUrl}
+                alt={photo.caption ?? "Family photo"}
+                loading="lazy"
+                className="h-full w-full object-cover object-top transition-transform duration-200 group-hover:scale-105"
+              />
+            </button>
+            {photo.caption && (
+              <p className="truncate text-xs text-stone-600" title={photo.caption}>
+                {photo.caption}
+              </p>
+            )}
+          </div>
         ))}
       </div>
 
