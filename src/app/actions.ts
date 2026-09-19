@@ -1,6 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import { redirect } from "next/navigation";
 import { getAdminClient } from "@/lib/supabase/admin";
 import { nameRequestSchema } from "@/lib/validation";
 import { isRateLimited } from "@/lib/rate-limit";
@@ -9,6 +10,7 @@ import {
   readVisitorStatus,
   pollAndUpgradeIfApproved,
   mintApprovedSession,
+  clearSessionCookie,
 } from "@/lib/auth/visitor";
 
 export type NameRequestState = { error?: string } | undefined;
@@ -65,6 +67,15 @@ export async function submitNameRequest(
       .single();
 
     if (error || !data) {
+      console.error(
+        "submitNameRequest: insert failed",
+        JSON.stringify({
+          message: error?.message,
+          code: error?.code,
+          details: error?.details,
+          hint: error?.hint,
+        })
+      );
       return { error: "Something went wrong submitting your request. Please try again." };
     }
 
@@ -115,6 +126,7 @@ export async function submitNameRequest(
     .eq("id", existingRequest.id);
 
   if (resetError) {
+    console.error("submitNameRequest: reset-to-pending failed", resetError);
     return { error: "Something went wrong submitting your request. Please try again." };
   }
 
@@ -134,4 +146,16 @@ export async function pollAccessStatus() {
     return { state: "pending" as const };
   }
   return pollAndUpgradeIfApproved();
+}
+
+/**
+ * Signs the visitor out of this browser only — clears the session cookie,
+ * leaving their approved_devices row (and admin's approval) untouched. If
+ * they submit the same email again on this device, they're re-approved
+ * instantly since the device itself was never revoked; only an admin revoke
+ * or deny actually forces a new approval.
+ */
+export async function signOutVisitor() {
+  await clearSessionCookie();
+  redirect("/");
 }

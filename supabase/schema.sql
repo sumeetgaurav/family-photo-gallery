@@ -19,7 +19,10 @@ create table if not exists public.access_requests (
   device_cookie_id text not null unique,
   created_at timestamptz not null default now(),
   decided_at timestamptz,
-  decided_by uuid references auth.users (id)
+  decided_by uuid references auth.users (id),
+  visit_count integer not null default 0,
+  last_visited_at timestamptz,
+  last_user_agent text
 );
 
 create index if not exists access_requests_status_idx on public.access_requests (status, created_at desc);
@@ -48,6 +51,25 @@ create table if not exists public.approved_devices (
 create index if not exists approved_devices_request_idx on public.approved_devices (access_request_id);
 
 alter table public.approved_devices enable row level security;
+
+-- ---------------------------------------------------------------------------
+-- record_gallery_visit: atomically bumps visit_count and stamps
+-- last_visited_at each time an approved visitor loads the gallery
+-- (src/app/gallery/page.tsx). A plain client-side update({visit_count: n+1})
+-- would race under concurrent visits; this does the increment in SQL.
+-- ---------------------------------------------------------------------------
+create or replace function public.record_gallery_visit(request_id uuid, user_agent text default null)
+returns void
+language sql
+security definer
+set search_path = public
+as $$
+  update public.access_requests
+  set visit_count = visit_count + 1,
+      last_visited_at = now(),
+      last_user_agent = coalesce(user_agent, last_user_agent)
+  where id = request_id;
+$$;
 
 -- ---------------------------------------------------------------------------
 -- albums: optional grouping for photos.

@@ -61,14 +61,20 @@ export async function denyRequest(requestId: string) {
   revalidatePath("/admin");
 }
 
-export async function revokeDevice(deviceId: string) {
+/**
+ * Revokes every active device for this request in one action. Approved
+ * visitors are shown one row per email in the dashboard (not one per
+ * device — see AdminRequestsPage), so "Revoke" cuts off all of that
+ * visitor's active sessions at once rather than a single device.
+ */
+export async function revokeAccess(requestId: string) {
   await verifyAdminSession();
   const supabase = getAdminClient();
 
   await supabase
     .from("approved_devices")
     .update({ revoked_at: new Date().toISOString() })
-    .eq("id", deviceId)
+    .eq("access_request_id", requestId)
     .is("revoked_at", null);
 
   revalidatePath("/admin");

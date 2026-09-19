@@ -13,6 +13,9 @@ export type AccessRequestRow = {
   created_at: string;
   decided_at: string | null;
   decided_by: string | null;
+  visit_count: number;
+  last_visited_at: string | null;
+  last_user_agent: string | null;
 };
 
 export type ApprovedDeviceRow = {
@@ -72,6 +75,11 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      record_gallery_visit: {
+        Args: { request_id: string; user_agent?: string | null };
+        Returns: undefined;
+      };
+    };
   };
 };

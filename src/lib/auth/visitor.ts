@@ -13,7 +13,7 @@ export type VisitorStatus =
   | { state: "anonymous" }
   | { state: "pending" }
   | { state: "denied" }
-  | { state: "approved"; name: string; deviceId: string };
+  | { state: "approved"; name: string; deviceId: string; requestId: string };
 
 function getJwtSecret() {
   const secret = process.env.VISITOR_JWT_SECRET;
@@ -103,7 +103,13 @@ async function readSessionStatus(): Promise<VisitorStatus | null> {
     const deviceId = payload.sub;
     const tok = payload.tok;
     const name = payload.name;
-    if (typeof deviceId !== "string" || typeof tok !== "string" || typeof name !== "string") {
+    const requestId = payload.rid;
+    if (
+      typeof deviceId !== "string" ||
+      typeof tok !== "string" ||
+      typeof name !== "string" ||
+      typeof requestId !== "string"
+    ) {
       return null;
     }
 
@@ -122,7 +128,7 @@ async function readSessionStatus(): Promise<VisitorStatus | null> {
       return null;
     }
 
-    return { state: "approved", name, deviceId };
+    return { state: "approved", name, deviceId, requestId };
   } catch {
     return null;
   }
@@ -189,7 +195,19 @@ export async function mintApprovedSession(request: {
   });
   await clearPendingRequestCookie();
 
-  return { state: "approved", name: request.name, deviceId: device.id };
+  return { state: "approved", name: request.name, deviceId: device.id, requestId: request.id };
+}
+
+/**
+ * Bumps the visitor's visit_count and last_visited_at, atomically, via the
+ * record_gallery_visit SQL function (schema.sql) so concurrent visits can't
+ * race a read-modify-write. Called once per gallery render — see
+ * src/app/gallery/page.tsx. Best-effort: a failure here shouldn't block the
+ * visitor from seeing their photos.
+ */
+export async function recordGalleryVisit(requestId: string, userAgent?: string | null): Promise<void> {
+  const supabase = getAdminClient();
+  await supabase.rpc("record_gallery_visit", { request_id: requestId, user_agent: userAgent ?? null });
 }
 
 /**
