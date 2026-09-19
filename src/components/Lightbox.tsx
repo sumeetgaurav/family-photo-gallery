@@ -99,7 +99,7 @@ export function Lightbox({
         <img
           src={photo.url}
           alt={photo.caption ?? "Family photo"}
-          className="max-h-[80vh] max-w-full rounded-md object-contain"
+          className="block max-h-[80vh] max-w-[90vw] rounded-md object-contain"
         />
         {photo.caption && (
           <figcaption className="text-sm text-white/80">{photo.caption}</figcaption>
