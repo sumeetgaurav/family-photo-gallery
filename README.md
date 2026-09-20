@@ -41,7 +41,9 @@ for what actually shipped.
    pending queue and needs a fresh decision.
 6. Inside the gallery, visitors browse a photo grid with captions and a full-size lightbox
    viewer, and can **log out** of that browser (which doesn't revoke their approval — see
-   [Visitor flow](#visitor-flow-step-by-step)).
+   [Visitor flow](#visitor-flow-step-by-step)). The gallery also **auto-logs-out after 15 minutes
+   of inactivity** — if the tab sits untouched (no mouse, keyboard, scroll, or touch input), it
+   signs the visitor out the same way the manual button does.
 7. The admin dashboard shows, per approved visitor: how many times they've visited, when they
    last visited (IST), and which device/browser they last used — and can revoke access with one
    click.
@@ -129,6 +131,7 @@ src/
 │   ├── Lightbox.tsx                Full-size photo viewer (prev/next, caption, Esc to close)
 │   ├── CurrentDateTime.tsx         Live clock shown in the gallery header
 │   ├── SignOutButton.tsx           Visitor "Log out" button (clears session cookie only)
+│   ├── IdleLogout.tsx              Auto-logs-out after 15 minutes of inactivity in the gallery
 │   └── admin/
 │       ├── LoginForm.tsx           Email/password sign-in form
 │       ├── AutoRefresh.tsx         Calls router.refresh() every 5s so the dashboard feels live
@@ -212,6 +215,13 @@ revoke the `approved_devices` row. If that person submits the same email again o
 device, they're re-approved instantly. Only an admin **Revoke** or **Deny** forces a real
 re-approval.
 
+**Idle timeout**: `IdleLogout` (mounted on the gallery page) starts a 15-minute timer that resets
+on any mouse, keyboard, scroll, or touch activity, and on tab-visibility changes. If it ever
+fires, it calls the same `signOutVisitor` as the manual button — so it has the exact same "local
+sign-out only" semantics described above. This guards against a shared or family device being
+left logged into the gallery unattended; it is not a replacement for the server-side revocation
+check, which still runs on every request regardless of this timer.
+
 ## Security model
 
 - **RLS everywhere, no exceptions.** Every table has Row Level Security enabled with zero public
@@ -231,6 +241,9 @@ re-approval.
 - **`src/proxy.ts`** (Next.js 16's renamed `middleware.ts`) only does an *optimistic* redirect
   based on cookie *presence*, purely for UX (skip the flash of the gate page); it is not a
   security boundary — the real check happens server-side on every protected render regardless.
+- **15-minute idle timeout** on the gallery (`src/components/IdleLogout.tsx`) — a client-side
+  convenience that signs the visitor out of an unattended browser, on top of (not instead of) the
+  server-side session/revocation check described above.
 
 ## Local setup
 

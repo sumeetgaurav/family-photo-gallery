@@ -5,6 +5,7 @@ import { listGalleryPhotos } from "@/lib/photos";
 import { GalleryGrid } from "@/components/GalleryGrid";
 import { CurrentDateTime } from "@/components/CurrentDateTime";
 import { SignOutButton } from "@/components/SignOutButton";
+import { IdleLogout } from "@/components/IdleLogout";
 
 // Gated by a per-visitor cookie and signed URLs that expire — never static.
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function GalleryPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl px-6 py-10">
+      <IdleLogout />
       <header className="mb-8 flex items-baseline justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-stone-900">Family Gallery</h1>
